@@ -10,6 +10,8 @@
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
+#include <blkid/blkid.h>
 
 static int get_node(const char *image_path, char **loopdev, int *loop) {
 	
@@ -78,14 +80,21 @@ static int get_node(const char *image_path, char **loopdev, int *loop) {
 
 }
 
+static int get_partition_node(const blkid_off, char **loopdev, int *loop) {
+
+
+
+}
+
 static int single_mount(const char *image_path, const char *target) {
 
 
         int rc = -1;
-	int loop = -1;
         struct libmnt_context *cxt;
-        cxt = mnt_new_context();
-        char *source = NULL;
+       	cxt = mnt_new_context();
+     
+	char *source = NULL;
+	int loop = -1;
 
         if ( get_node(image_path, &source, &loop) < 0 ) {
                 printf("Failed to get node for mounting");
@@ -129,23 +138,87 @@ static int single_mount(const char *image_path, const char *target) {
         return rc;
 }
 
+static int mount_partition(const char *image_path, const char *target) {
+
+	int i, nparts, rp;
+        blkid_probe pr;
+        blkid_partlist ls;
+	blkid_partition part;
+	blkid_loff_t offset;
+
+        char *loopdev = NULL;
+        int loop = -1;
+
+        if ( get_node(image_path, &devname, &loop) < 0 ) {
+                printf("Failed to get node for loop device partition read");
+                goto out;
+        }
+
+	pr = blkid_new_probe_from_filename(loopdev);
+	if (!pr) {
+		perror("Failure to create probe for loop device");
+		goto out;
+	}
+
+	ls = blkid_probe_get_partitions(pr);
+	if (!ls) {
+                perror("Failure to get partition list for loop device");
+                goto out;
+	}	
+
+	par = blkid_partlist_get_partition(ls, 0);
+	
+	offset = blkid_partition_get_start(par);	
+	
+	out:
+		if (!pr) 
+			blkid_free_probe(pr);
+		
+		free(devname);
+
+	return rp;
+}
+
+ 
 int main(int argc, char *argv[]) {
 
         const char *path, *target;
+	const int cmd;
+	int p;
         
-	if (!(argc == 3)) {
-                perror("Invalid usage of loop_util. Please input <SOURCE> <TARGET>");
+	if (!(argc == 4)) {
+                perror("Invalid usage of loop_util. Please input <CMD> <SOURCE> <TARGET>");
                 return -1;
         }
+	
+	cmd = atoi(argv[1]);
+        path = argv[2];
+        target = argv[3];
 
-        path = argv[1];
-        target = argv[2];
+	switch(cmd) {
 
-        int p = single_mount(path, target);
-        if (p < 0)
-                fprintf(stderr, "Failure to execute single_mount");
-        return p;
+		// single mount
+		case 1: 
+        		p = single_mount(path, target);
+       			
+			if (p < 0)
+                		fprintf(stderr, "Failure to execute single_mount");	
+        		return p;
+		
+		// single partition read
+		case 2:
+			p = mount_partition(path, target);
 
+			if (p < 0)
+                                fprintf(stderr, "Failure to execute mount_partition");
+                        return p;
+			
+		default:
+			printf("Invalid usage of loop_util. Please input a valid <CMD>");
+	}
+
+	return p;
 }
+
 
 

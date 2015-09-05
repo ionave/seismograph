@@ -51,7 +51,7 @@ e2size_LDADD = $(EXT2FS_LIBS)
 
 loopy_SOURCES = \
 	src/loopy/loopy.c
-loopy_LDADD = $(MNT_LIBS)
+loopy_LDADD = $(MNT_LIBS) $(BLKID_LIBS)
 
 check_PROGRAMS = cgptlib_test \
 		 utility_string_tests \
