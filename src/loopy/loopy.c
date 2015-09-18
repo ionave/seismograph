@@ -13,7 +13,7 @@
 #include <string.h>
 #include <blkid/blkid.h>
 
-static int get_node(const char *image_path, char **loopdev, int *loop) {
+static int get_node(const char *image_path, const blkid_loff_t offset, char **loopdev, int *loop) {
 	
 
         struct loop_info64 info = {
@@ -80,12 +80,6 @@ static int get_node(const char *image_path, char **loopdev, int *loop) {
 
 }
 
-static int get_partition_node(const blkid_off, char **loopdev, int *loop) {
-
-
-
-}
-
 static int single_mount(const char *image_path, const char *target) {
 
 
@@ -96,7 +90,7 @@ static int single_mount(const char *image_path, const char *target) {
 	char *source = NULL;
 	int loop = -1;
 
-        if ( get_node(image_path, &source, &loop) < 0 ) {
+        if ( get_node(image_path, 0, &source, &loop) < 0 ) {
                 printf("Failed to get node for mounting");
                 goto out;
         }
@@ -140,16 +134,17 @@ static int single_mount(const char *image_path, const char *target) {
 
 static int mount_partition(const char *image_path, const char *target) {
 
-	int i, nparts, rp;
-        blkid_probe pr;
+	//int rp, i, nparts;
+        blkid_probe pr = 0;
         blkid_partlist ls;
 	blkid_partition part;
 	blkid_loff_t offset;
 
         char *loopdev = NULL;
         int loop = -1;
+	int rp = 1;
 
-        if ( get_node(image_path, &devname, &loop) < 0 ) {
+        if ( get_node(image_path, 0, &loopdev, &loop) < 0 ) {
                 printf("Failed to get node for loop device partition read");
                 goto out;
         }
@@ -166,15 +161,20 @@ static int mount_partition(const char *image_path, const char *target) {
                 goto out;
 	}	
 
-	par = blkid_partlist_get_partition(ls, 0);
+	part = blkid_partlist_get_partition(ls, 0);
 	
-	offset = blkid_partition_get_start(par);	
+	offset = blkid_partition_get_start(part);	
 	
+        if ( get_node(image_path, offset, &loopdev, &loop) < 0 ) {
+                printf("Failed to get node for loop device's primary partition");
+                goto out;
+        }
+
 	out:
 		if (!pr) 
 			blkid_free_probe(pr);
 		
-		free(devname);
+		free(loopdev);
 
 	return rp;
 }
@@ -183,9 +183,9 @@ static int mount_partition(const char *image_path, const char *target) {
 int main(int argc, char *argv[]) {
 
         const char *path, *target;
-	const int cmd;
-	int p;
-        
+	int cmd = 0;
+	int p = 0;
+
 	if (!(argc == 4)) {
                 perror("Invalid usage of loop_util. Please input <CMD> <SOURCE> <TARGET>");
                 return -1;
